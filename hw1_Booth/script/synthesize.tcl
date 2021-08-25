@@ -1,3 +1,6 @@
+# Force multicore
+set_host_options -max_cores 16
+
 # Read all Files
 set top booth
 #read_verilog ../src/${top}.v
@@ -9,7 +12,7 @@ link
 source -echo -verbose ../script/${top}.sdc
 
 # High fanout threshold
-# set high_fanout_net_threshold 0
+set high_fanout_net_threshold 0
 report_net_fanout -high_fanout
 
 uniquify
@@ -19,8 +22,22 @@ set_structure -timing true
  
 check_design
 
+### Old command
+## Auto CG
+#insert_clock_gating
+#report_clock_gating
+## Synthesis (quick try)
+#compile -map_effort medium -area_effort low
+#compile -map_effort medium -area_effort low -inc
+## Synthesize (high effort)
+#compile -map_effort high -area_effort high
+#compile -map_effort high -area_effort high -inc
+## Register retiming (dcnxt only)
+# optimize_registers
+
 # Synthesize (ultimate)
-compile_ultra -no_autoungroup -no_boundary_optimization -retime -gate_clock
+# compile_ultra -no_autoungroup -no_boundary_optimization -retime -gate_clock
+compile_ultra
 compile_ultra -incremental
 
 current_design [get_designs ${top}]
@@ -38,7 +55,7 @@ define_name_rules name_rule -case_insensitive
 change_names -hierarchy -rules name_rule
 
 write -format ddc  -hierarchy -output "${top}_syn.ddc"
-write_sdf -version 2.1 -context verilog -load_delay net ../syn/${top}_syn.sdf
+write_sdf ../syn/${top}_syn.sdf
 write_file -format verilog -hierarchy -output ../syn/${top}_syn.v
 report_area > area.log
 report_timing > timing.log
