@@ -1,5 +1,5 @@
 `timescale 1ns/10ps
-`define CYCLE  10        	// Modify your clock period here
+`define CYCLE  200        	// Modify your clock period here
 
 `define INFILE "in.dat"
 `define OUTFILE "out_golden.dat"  
@@ -42,11 +42,14 @@ initial begin
 end
 
 initial begin
-//$dumpfile("cs.vcd");
-//$dumpvars;
-//$fsdbDumpfile("cs.fsdb");
-//$fsdbDumpvars; 
+   $shm_open(`SHM_FILE);
+   $shm_probe("ASM");
+   $fsdbDumpfile(`FSDB_FILE);
+   $fsdbDumpvars;
+   $fsdbDumpMDA;
+end
 
+initial begin
    out_f = $fopen("out.dat");
    if (out_f == 0) begin
         $display("Output file open error !");

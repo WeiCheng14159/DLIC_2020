@@ -1,98 +1,49 @@
 `include "def.v"
 
 module CS(
-  input clk, 
-  input reset,
-  input [7:0] X,
-  output reg [9:0] Y
+  input                                 clk, 
+  input                                 reset,
+  input                           [7:0] X,
+  output                          [9:0] Y
 );
 
-  wire                [`STATE_W-1:0] fb_flags;
-  wire                [`STATE_W-1:0] state;
-  wire                [`STATE_W-1:0] int_flags;
-
-  assign                             fb_flags = int_flags & state;
-  wire                               dp_cnt_rst;
-
-  ctrl ul_ctrl(
-    .clk(clk),
-    .reset(rst),
-    .dp_cnt_rst(dp_cnt_rst),
-    .fb_flags(fb_flags),
-    .curr_state(state),
-    .pass(pass)
-  );
-
-  dp ul_dp(
-    .clk(clk),
-    .reset(rst),
-    .cnt_rst(dp_cnt_rst),
-    .state(state),
-    .int_flags(int_flags),
-    .R(R),
-    .G(G),
-    .Y(Y)
-  );
-
-// Counter that counts two cycles of reset signal
-reg [2:0] rst_cnt;
-// Internal state counter
-reg [3:0] cnt;
-// A buffer for SISO shifter
-reg [7:0] buffer [8:0];
+  reg                      [`CNT_W-1:0] cnt;
+  reg                    [`DATAX_W-1:0] buffer [`BUF_SIZE-1:0];
+  reg                    [`DATAY_W-1:0] Y_r;
 
 // FSM state register
 reg [1:0] curr_state, next_state;
 // FSM state declaration
-parameter [1:0]
-          READY_STATE = 2'b00,
-          READ_STATE = 2'b01,
-          OUTPUT_STATE = 2'b10;
+parameter [1:0] S_READ = 2'b01, S_OUTP = 2'b10;
 
 // State register (S)
 always @(posedge clk, posedge reset) begin
-    if (reset) begin
-        curr_state <= READY_STATE;
-    end
-    else begin
-        curr_state <= next_state;
-    end
+  if (reset)
+    curr_state <= S_READ;
+  else
+    curr_state <= next_state;
 end
 
 //  Counter increment
 always @(posedge clk) begin
-    if (reset) begin
-        rst_cnt <= rst_cnt + 1;
-    end
-    else begin
-        rst_cnt <= 0;
-        if (cnt == 4'h9)
-            cnt <= 4'h9;
-        else
-            cnt <= cnt + 1;
-    end
+    if (reset)
+      cnt <= 0;
+    else if (cnt == 9)
+      cnt <= 9;
+    else
+      cnt <= cnt + 1;
 end
 
 // Next state logic (Comb)
-always @(curr_state or rst_cnt or cnt) begin
+always @(*) begin
     case(curr_state)
-        READY_STATE: begin
-            if (rst_cnt != 2)
-                next_state = READY_STATE;
-            else // Jump to next state if 2 reset cycles have been counted
-                next_state = READ_STATE;
+        S_READ: begin
+          next_state = (cnt != `BUF_SIZE-1) ? S_READ : S_OUTP;
         end
-        READ_STATE: begin
-            if (cnt != 9)
-                next_state = READ_STATE;
-            else begin // Jump to next state if 9 bits have been read
-                next_state = OUTPUT_STATE;
-            end
-        end
-        OUTPUT_STATE:
-            next_state = OUTPUT_STATE;
+        S_OUTP:
+          next_state = S_OUTP;
         default:
-            next_state = READY_STATE;
+          next_state = S_READ;
     endcase
 end
 
@@ -101,62 +52,57 @@ reg [3:0] itrIdx, approxIdx;
 // xAppr is the largest element in buffer that's smaller than xAvg
 // diff is a temporary variable that keeps track of the difference between buffer[i] and xAvg
 reg [8:0] xAppr, diff;
-// bufferSum is the sum of all elements in buffer
-wire [40:0] bufferSum = buffer[0] + buffer[1] + buffer[2] + buffer[3] + buffer[4] + buffer[5] + buffer[6] + buffer[7] + buffer[8];
-// bufferSum / 9
-wire [8:0] xAvg = (bufferSum * 32'h1C71C71D) >> 32;
-// OutputY = (bufferSum + xAppr * 9) / 8
-wire [9:0] OutputY = (xAppr * 9 + bufferSum) >> 3;
+// sum is the sum of all elements in buffer
+wire [40:0] sum = buffer[0] + buffer[1] + buffer[2] + buffer[3] + buffer[4] + buffer[5] + buffer[6] + buffer[7] + buffer[8];
+// sum / 9
+wire [8:0] xAvg = (sum * 32'h1C71C71D) >> 32;
 
-// Output logic (Comb) for OutputY
-always @(curr_state or buffer[8] or xAvg or diff) begin
-
-    diff  = 9'h0FF;
-    xAppr     = 9'h000;
+// Output logic (Comb)
+always @(*) begin
+    diff = 9'h0FF;
+    xAppr = 9'h000;
     approxIdx = 0;
     case(curr_state)
-        READY_STATE:
+        S_READ:
             ;
-        READ_STATE:
-            ;
-        OUTPUT_STATE: begin
+        S_OUTP: begin
             // Find xAppr in buffer
             for(itrIdx = 0 ; itrIdx <= 8 ; itrIdx = itrIdx + 1)
-                if ((xAvg - buffer[itrIdx] < diff) && (xAvg - buffer[itrIdx]) > 0) begin
+                if ((xAvg - buffer[itrIdx] < diff) & (xAvg > buffer[itrIdx])) begin
                     approxIdx = itrIdx;
-                    diff  = xAvg - buffer[itrIdx];
+                    diff = xAvg - buffer[itrIdx];
                 end
-                else if (xAvg - buffer[itrIdx] == 0) begin
+                else if (xAvg == buffer[itrIdx]) begin
                     approxIdx = itrIdx;
-                    diff  = 0;
+                    diff = 0;
                 end
             xAppr = buffer[approxIdx];
         end
-        default:
-            ;
+        default: ;
     endcase
 end
 
 // Write to Y
 wire nclk = ~clk;
-always @(posedge nclk) begin
-    Y <= OutputY;
+always @(posedge nclk, posedge reset) begin
+  if(reset)
+    Y_r <= 0;
+  else if(cnt == 9)
+    Y_r <= ((xAppr << 3) + xAppr + sum) >> 3;
 end
+assign Y = Y_r;
 
-// SISO shifter
-reg [3:0] idx, i;
-always @(posedge clk) begin
-    if (reset == 0) begin
-        // buffer shift & read input
-        for(idx = 0 ; idx != 4'b1000 ; idx = idx + 1) begin
-            buffer[idx] <= buffer[idx+1];
-        end
-        buffer[8] <= X;
-    end
-    else begin
-        for(i = 0 ; i != 4'b1000 ; i = i + 1)
-            buffer[i] <= 8'h00;
-    end
+integer i;
+always @(posedge clk, posedge reset) begin
+  if (reset) begin
+      for(i=0 ; i<`BUF_SIZE; i=i+1)
+          buffer[i] <= 0;
+  end else begin
+      for(i=0 ; i<`BUF_SIZE-1 ; i=i+1) begin
+          buffer[i] <= buffer[i+1];
+      end
+      buffer[8] <= X;
+  end
 end
 
 endmodule
