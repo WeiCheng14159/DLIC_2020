@@ -1,11 +1,11 @@
-# Force multicore
+set top CONV
+
+# Don't change anything below this line
 set_host_options -max_cores 16
 
 # Read all Files
-set top CONV
-#read_verilog ../src/${top}.v
 read_file -autoread -top ${top} -recursive {../src} -library ${top}
-current_design ${top}
+current_design [get_designs ${top}]
 link
 
 # Setting Clock Constraits
@@ -22,22 +22,10 @@ set_structure -timing true
  
 check_design
 
-### Old command
-## Auto CG
-#insert_clock_gating
-#report_clock_gating
-## Synthesis (quick try)
-#compile -map_effort medium -area_effort low
-#compile -map_effort medium -area_effort low -inc
-## Synthesize (high effort)
-#compile -map_effort high -area_effort high
-#compile -map_effort high -area_effort high -inc
-## Register retiming (dcnxt only)
-# optimize_registers
-
-# Synthesize (ultimate)
-# compile_ultra -no_autoungroup -no_boundary_optimization -retime -gate_clock
-compile_ultra
+#compile -map_effort high
+#compile -map_effort high -inc
+#compile_ultra -no_autoungroup -no_boundary_optimization -retime -gate_clock
+compile_ultra -no_autoungroup -no_boundary_optimization -retime
 compile_ultra -incremental
 
 current_design [get_designs ${top}]
@@ -54,9 +42,11 @@ define_name_rules name_rule -map {{"\\*cell\\*" "cell"}}
 define_name_rules name_rule -case_insensitive
 change_names -hierarchy -rules name_rule
 
-write -format ddc  -hierarchy -output "${top}_syn.ddc"
-write_sdf ../syn/${top}_syn.sdf
+# Write sdf
+write -format ddc -hierarchy -output "${top}_syn.ddc"
 write_file -format verilog -hierarchy -output ../syn/${top}_syn.v
+write_sdf -version 2.0 -context verilog  ../syn/${top}_syn.sdf
+write_sdc -version 2.0 ${top}.sdc
 report_area > area.log
 report_timing > timing.log
 report_qor > ${top}_syn.qor

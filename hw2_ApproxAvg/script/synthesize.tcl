@@ -25,7 +25,7 @@ check_design
 #compile -map_effort high
 #compile -map_effort high -inc
 #compile_ultra -no_autoungroup -no_boundary_optimization -retime -gate_clock
-compile_ultra
+compile_ultra -no_autoungroup -no_boundary_optimization -retime
 compile_ultra -incremental
 
 current_design [get_designs ${top}]
