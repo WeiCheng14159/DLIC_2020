@@ -1,12 +1,38 @@
-`timescale 1ns/10ps
-module CS(Y,
-          X,
-          reset,
-          clk);
+`include "def.v"
 
-input clk, reset;
-input wire [7:0] X;
-output reg [9:0] Y;
+module CS(
+  input clk, 
+  input reset,
+  input [7:0] X,
+  output reg [9:0] Y
+);
+
+  wire                [`STATE_W-1:0] fb_flags;
+  wire                [`STATE_W-1:0] state;
+  wire                [`STATE_W-1:0] int_flags;
+
+  assign                             fb_flags = int_flags & state;
+  wire                               dp_cnt_rst;
+
+  ctrl ul_ctrl(
+    .clk(clk),
+    .reset(rst),
+    .dp_cnt_rst(dp_cnt_rst),
+    .fb_flags(fb_flags),
+    .curr_state(state),
+    .pass(pass)
+  );
+
+  dp ul_dp(
+    .clk(clk),
+    .reset(rst),
+    .cnt_rst(dp_cnt_rst),
+    .state(state),
+    .int_flags(int_flags),
+    .R(R),
+    .G(G),
+    .Y(Y)
+  );
 
 // Counter that counts two cycles of reset signal
 reg [2:0] rst_cnt;
