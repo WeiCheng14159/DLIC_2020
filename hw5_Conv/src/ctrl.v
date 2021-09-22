@@ -1,20 +1,20 @@
 `include "def.v"
 
 module ctrl (
-  input                               clk,
-  input                               reset,
-  input                               start,
-  output reg                          dp_cnt_rst,
-  input             [`INT_FLAG_W-1:0] fb_flags,
-  output reg        [`CMD_FLAG_W-1:0] cmd_flags,
-  output reg         [`GLB_CNT_W-1:0] glb_idx_x,
-  output reg         [`GLB_CNT_W-1:0] glb_idx_y
+  input                                 clk,
+  input                                 reset,
+  input                                 start,
+  output reg                            dp_cnt_rst,
+  input                  [`STATE_W-1:0] fb_flags,
+  output reg             [`STATE_W-1:0] curr_state,
+  output reg           [`GLB_CNT_W-1:0] glb_idx_x,
+  output reg           [`GLB_CNT_W-1:0] glb_idx_y
 );
 
-  reg                [`STATE_W-1:0] curr_state, next_state;
+  reg                    [`STATE_W-1:0] next_state;
   
   // State Register (S)
-  always @(posedge clk) begin
+  always @(posedge clk, posedge reset) begin
      if(reset)
        curr_state <= {`S_ZVEC | {{(`STATE_W-1){1'b0}}, 1'b1}};
      else
@@ -22,14 +22,14 @@ module ctrl (
   end // State Register
 
   // Wait for interrupt signal
-  wire                 wait_done = start;
-  wire                 read_done = fb_flags[`INT_READ];
-  wire                 read_w_done = fb_flags[`INT_READ_W];
-  wire                  opt_done = fb_flags[`INT_OPT];
-  wire            write_all_done = fb_flags[`INT_WRITE] & 
-                                   (glb_idx_x == (`IMG_SIZE-3)) & 
-                                   (glb_idx_y == (`IMG_SIZE-3));
-  wire           write_nyet_done = fb_flags[`INT_WRITE];
+  wire                        wait_done = start;
+  wire                        read_done = fb_flags[`S_READ];
+  wire                      read_w_done = fb_flags[`S_READ_W];
+  wire                         opt_done = fb_flags[`S_OPT];
+  wire                   write_all_done = fb_flags[`S_WRITE] & 
+                                          (glb_idx_x == (`IMG_SIZE-3)) & 
+                                          (glb_idx_y == (`IMG_SIZE-3));
+  wire                  write_nyet_done = fb_flags[`S_WRITE];
 
   // Next State Logic (C)
   always @(*) begin
@@ -94,20 +94,17 @@ module ctrl (
 
   // Output Logic (C)
   always @(*) begin
-    cmd_flags = {`CMD_FLAG_W{1'b0}}; 
     dp_cnt_rst = 1'b0;
 
     case (1'b1)
 
       // WAIT state
       curr_state[`S_WAIT]: begin
-        cmd_flags[`CMD_WAIT] = 1'b1;
         dp_cnt_rst = 1;
       end
 
       // READ_W state
       curr_state[`S_READ_W]: begin
-        cmd_flags[`CMD_READ_W] = 1'b1;
         if(read_w_done) begin
           dp_cnt_rst = 1;
         end
@@ -115,7 +112,6 @@ module ctrl (
 
       // READ state
       curr_state[`S_READ]: begin
-        cmd_flags[`CMD_READ] = 1'b1;
         if(read_done) begin
           dp_cnt_rst = 1;
         end
@@ -123,7 +119,6 @@ module ctrl (
 
       // OPT state
       curr_state[`S_OPT]: begin
-        cmd_flags[`CMD_OPT] = 1'b1;
         if(opt_done) begin
           dp_cnt_rst = 1;
         end
@@ -131,28 +126,27 @@ module ctrl (
 
       // WRITE state
       curr_state[`S_WRITE]: begin
-        cmd_flags[`CMD_WRITE] = 1'b1;
         dp_cnt_rst = 1;
       end
 
       // End state
       curr_state[`S_END]: begin
-        cmd_flags[`CMD_END] = 1'b1;
+        dp_cnt_rst = 1;
       end
       
       //default
       default: begin
-        cmd_flags[`CMD_READ] = 1'b1;
+        dp_cnt_rst = 1;
       end
     endcase
 
   end // Next State Logic (C)
 
-  always @(posedge clk) begin
+  always @(posedge clk, posedge reset) begin
     if(reset) begin
       glb_idx_x <= 0;
       glb_idx_y <= 0;
-    end else if(fb_flags[`INT_WRITE]) begin
+    end else if(fb_flags[`S_WRITE]) begin
       if(glb_idx_x == (`IMG_SIZE-1)) begin
         glb_idx_x <= 0;
         glb_idx_y <= glb_idx_y + 1;

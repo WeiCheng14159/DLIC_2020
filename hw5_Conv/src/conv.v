@@ -18,11 +18,11 @@ module conv(
 
   wire                rst_n = ~rst;
 
-  wire                [`CMD_FLAG_W-1:0] fb_flags;
-  wire                [`CMD_FLAG_W-1:0] cmd_flags;
-  wire                [`INT_FLAG_W-1:0] int_flags;
+  wire                   [`STATE_W-1:0] fb_flags;
+  wire                   [`STATE_W-1:0] state;
+  wire                   [`STATE_W-1:0] int_flags;
 
-  assign                                fb_flags = int_flags & cmd_flags;
+  assign                                fb_flags = int_flags & state;
   wire                                  dp_cnt_rst;
 
   wire                 [`GLB_CNT_W-1:0] glb_idx_x, glb_idx_y;
@@ -38,7 +38,7 @@ module conv(
     .start(start),
     .dp_cnt_rst(dp_cnt_rst),
     .fb_flags(fb_flags),
-    .cmd_flags(cmd_flags),
+    .curr_state(state),
     .glb_idx_x(glb_idx_x),
     .glb_idx_y(glb_idx_y)
   );
@@ -47,7 +47,7 @@ module conv(
     .clk(clk),
     .reset(rst_n),
     .cnt_rst(dp_cnt_rst),
-    .cmd_flags(cmd_flags),
+    .state(state),
     .int_flags(int_flags),
     .M0_R_data(M0_R_data),
     .M1_R_data(M1_R_data),

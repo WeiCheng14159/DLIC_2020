@@ -1,24 +1,6 @@
-// This is generated automatically on 2021/07/16-01:36:24
+// This is generated automatically on 2021/09/22-21:57:11
 `ifndef __FLAG_DEF__
 `define __FLAG_DEF__
-
-// There're 6 interrupt flags in this design
-`define INT_WAIT               	 0  
-`define INT_READ_W             	 1  
-`define INT_READ               	 2  
-`define INT_OPT                	 3  
-`define INT_WRITE              	 4  
-`define INT_END                	 5  
-`define INT_FLAG_W             	 6  
-
-// There're 6 output flags in this design
-`define CMD_WAIT               	 0  
-`define CMD_READ_W             	 1  
-`define CMD_READ               	 2  
-`define CMD_OPT                	 3  
-`define CMD_WRITE              	 4  
-`define CMD_END                	 5  
-`define CMD_FLAG_W             	 6  
 
 // There're 6 states in this design
 `define S_WAIT                 	 0  
