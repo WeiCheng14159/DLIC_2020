@@ -20,9 +20,9 @@ module dp(
   output reg             [`STATE_W-1:0] int_flags,
   output reg          [`ADDR_WIDTH-1:0] M0_addr,
   input               [`DATA_WIDTH-1:0] M0_R_data,
-  output reg          [`DATA_WIDTH-1:0] M0_W_data,
+  output              [`DATA_WIDTH-1:0] M0_W_data,
   output reg                            M0_R_req,
-  output reg                      [3:0] M0_W_req,
+  output                          [3:0] M0_W_req,
   output reg          [`ADDR_WIDTH-1:0] M1_addr,
   input               [`DATA_WIDTH-1:0] M1_R_data,
   output reg          [`DATA_WIDTH-1:0] M1_W_data,
@@ -43,7 +43,10 @@ module dp(
   reg signed          [`DATA_WIDTH-1:0] accum;
   reg signed        [4*`DATA_WIDTH-1:0] raw;
   wire signed         [`DATA_WIDTH-1:0] truncated;
- 
+
+  assign M0_W_data = 0;
+  assign M0_W_req = 4'b0;
+
   // Interrupts
   `send_interrupt (`S_READ_W, 10)
   `send_interrupt (`S_READ, 8)
